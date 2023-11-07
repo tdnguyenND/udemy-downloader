@@ -60,6 +60,7 @@ h265_preset = "medium"
 use_nvenc = False
 browser = None
 cj = None
+start_lecture = 1
 
 
 # from https://stackoverflow.com/a/21978778/9785713
@@ -72,7 +73,7 @@ def log_subprocess_output(prefix: str, pipe: IO[bytes]):
 
 # this is the first function that is called, we parse the arguments, setup the logger, and ensure that required directories exist
 def pre_run():
-    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, disable_ipv6, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR
+    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, disable_ipv6, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR, start_lecture
 
     # make sure the logs directory exists
     if not os.path.exists(LOG_DIR_PATH):
@@ -87,6 +88,7 @@ def pre_run():
         type=str,
         help="The Bearer token to use",
     )
+    parser.add_argument('--start-index', dest='start_index', type=int, help="Starting index of lectures", required=False)
     parser.add_argument(
         "-q",
         "--quality",
@@ -228,6 +230,8 @@ def pre_run():
     parser.add_argument("-v", "--version", action="version", version="You are running version {version}".format(version=__version__))
 
     args = parser.parse_args()
+    if args.start_index:
+        start_lecture = args.start_index
     if args.download_assets:
         dl_assets = True
     if args.lang:
@@ -1659,21 +1663,26 @@ def process_quiz(udemy: Udemy, lecture, chapter_dir):
 def process_normal_quiz(quiz, lecture, chapter_dir):
     lecture_title = lecture.get("lecture_title")
     lecture_index = lecture.get("lecture_index")
-    lecture_file_name = sanitize_filename(lecture_title + ".html")
+    lecture_file_name = sanitize_filename(lecture_title + ".md")
     lecture_path = os.path.join(chapter_dir, lecture_file_name)
 
+    questions = quiz['contents']
+
     logger.info(f"  > Processing quiz {lecture_index}")
+    with open(lecture_path, "w") as f:
+        for q_idx, question in enumerate(questions):
+            correct_answer_idx = 'abcdefghijklmnopqrstuvwxyz'.find(question['correct_response'][0])
+            f.write(f'### Question {q_idx + 1}\n')
+            f.write(f'{clean_html(question["prompt"]["question"])}\n')
+            for a_idx, answer in enumerate(question['prompt']['answers']):
+                f.write(f'- [{"x" if a_idx == correct_answer_idx else " "}] {clean_html(answer)}\n')
+            f.write('\n')
 
-    with open("quiz_template.html", "r") as f:
-        html = f.read()
-        quiz_data = {
-            "pass_percent": lecture.get("data").get("pass_percent"),
-            "questions": quiz["contents"],
-        }
-        html = html.replace("__data_placeholder__", json.dumps(quiz_data))
-        with open(lecture_path, "w") as f:
-            f.write(html)
 
+def clean_html(raw_html):
+    reg = re.compile('<.*?>')
+    cleantext = re.sub(reg, '', raw_html)
+    return cleantext
 
 def process_coding_assignment(quiz, lecture, chapter_dir):
     lecture_title = lecture.get("lecture_title")
@@ -1709,8 +1718,7 @@ def parse_new(udemy: Udemy, udemy_object: dict):
     course_dir = os.path.join(DOWNLOAD_DIR, course_name)
     if not os.path.exists(course_dir):
         os.mkdir(course_dir)
-
-    for chapter in udemy_object.get("chapters"):
+    for chapter in udemy_object.get("chapters")[start_lecture - 1:]:
         chapter_title = chapter.get("chapter_title")
         chapter_index = chapter.get("chapter_index")
         chapter_dir = os.path.join(course_dir, chapter_title)
