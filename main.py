@@ -23,7 +23,6 @@ from pathvalidate import sanitize_filename
 from requests.exceptions import ConnectionError as conn_error
 from tqdm import tqdm
 
-from _version import __version__
 from constants import *
 from tls import SSLCiphers
 from utils import extract_kid
@@ -60,6 +59,7 @@ h265_preset = "medium"
 use_nvenc = False
 browser = None
 cj = None
+use_continuous_lecture_numbers = False
 start_lecture = 1
 
 
@@ -73,7 +73,7 @@ def log_subprocess_output(prefix: str, pipe: IO[bytes]):
 
 # this is the first function that is called, we parse the arguments, setup the logger, and ensure that required directories exist
 def pre_run():
-    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, disable_ipv6, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR, start_lecture
+    global dl_assets, dl_captions, dl_quizzes, skip_lectures, caption_locale, quality, bearer_token, course_name, keep_vtt, skip_hls, concurrent_downloads, disable_ipv6, load_from_file, save_to_file, bearer_token, course_url, info, logger, keys, id_as_course_name, LOG_LEVEL, use_h265, h265_crf, h265_preset, use_nvenc, browser, is_subscription_course, DOWNLOAD_DIR, use_continuous_lecture_numbers, start_lecture
 
     # make sure the logs directory exists
     if not os.path.exists(LOG_DIR_PATH):
@@ -227,7 +227,13 @@ def pre_run():
         type=str,
         help="Set the path to the output directory",
     )
-    parser.add_argument("-v", "--version", action="version", version="You are running version {version}".format(version=__version__))
+    parser.add_argument(
+        "--continue-lecture-numbers", "-n",
+        dest="use_continuous_lecture_numbers",
+        action="store_true",
+        help="Use continuous lecture numbering instead of per-chapter",
+    )
+    # parser.add_argument("-v", "--version", action="version", version="You are running version {version}".format(version=__version__))
 
     args = parser.parse_args()
     if args.start_index:
@@ -1988,7 +1994,8 @@ def main():
 
                 if clazz == "chapter":
                     # reset lecture tracking
-                    lecture_counter = 0
+                    if not use_continuous_lecture_numbers:
+                        lecture_counter = 0
                     lectures = []
 
                     chapter_index = entry.get("object_index")
