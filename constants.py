@@ -11,6 +11,7 @@ HEADERS = {
 }
 LOGIN_URL = "https://www.udemy.com/join/login-popup/?ref=&display_type=popup&loc"
 LOGOUT_URL = "https://www.udemy.com/user/logout"
+COURSE_DETAIL = "https://{portal_name}.udemy.com/api-2.0/courses/{pk}/?fields[course]=description,headline,image_100x100"
 COURSE_URL = "https://{portal_name}.udemy.com/api-2.0/courses/{course_id}/cached-subscriber-curriculum-items?fields[asset]=results,title,external_url,time_estimation,download_urls,slide_urls,filename,asset_type,captions,media_license_token,course_is_drmed,media_sources,stream_urls,body&fields[chapter]=object_index,title,sort_order&fields[lecture]=id,title,object_index,asset,supplementary_assets,view_html&page_size=10000"
 COURSE_INFO_URL = "https://{portal_name}.udemy.com/api-2.0/courses/{course_id}/"
 COURSE_SEARCH = "https://{portal_name}.udemy.com/api-2.0/users/me/subscribed-courses?fields[course]=id,url,title,published_title&page=1&page_size=500&search={course_name}"

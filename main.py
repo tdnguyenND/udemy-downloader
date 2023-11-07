@@ -376,6 +376,16 @@ class Udemy:
                 cj = browser_cookie3.chromium()
             elif browser == "vivaldi":
                 cj = browser_cookie3.vivaldi()
+    def _extract_course_detail(self, course_id):
+        url = COURSE_DETAIL.format(portal_name=portal_name, pk=course_id)
+        try:
+            resp = self.session._get(url).json()
+        except conn_error as error:
+            logger.fatal(f"Udemy Says: Connection error, {error}")
+            time.sleep(0.8)
+            sys.exit(1)
+        else:
+            return resp
 
     def _get_quiz(self, quiz_id):
         self.session._headers.update(
@@ -1714,7 +1724,7 @@ def process_coding_assignment(quiz, lecture, chapter_dir):
             f.write(html)
 
 
-def parse_new(udemy: Udemy, udemy_object: dict):
+def parse_new(udemy: Udemy, udemy_object: dict, course_detail: dict = None):
     total_chapters = udemy_object.get("total_chapters")
     total_lectures = udemy_object.get("total_lectures")
     logger.info(f"Chapter(s) ({total_chapters})")
@@ -1724,6 +1734,14 @@ def parse_new(udemy: Udemy, udemy_object: dict):
     course_dir = os.path.join(DOWNLOAD_DIR, course_name)
     if not os.path.exists(course_dir):
         os.mkdir(course_dir)
+    with open(course_dir + "/short_description.txt", "w") as f:
+        f.write(course_detail.get("headline"))
+    with open(course_dir + "/description.html", "w") as f:
+        f.write(course_detail.get("description"))
+    cover_image = course_detail.get('image_100x100').replace('100x100', '750x422')
+    cover_image_data = requests.get(cover_image).content
+    with open(course_dir + "/cover.jpg", "wb") as f:
+        f.write(cover_image_data)
     for chapter in udemy_object.get("chapters")[start_lecture - 1:]:
         chapter_title = chapter.get("chapter_title")
         chapter_index = chapter.get("chapter_index")
@@ -1954,7 +1972,7 @@ def main():
     else:
         course_json = udemy._extract_course_json(course_url, course_id, portal_name)
         course_json["portal_name"] = portal_name
-
+    course_detail = udemy._extract_course_detail(course_id)
     if save_to_file:
         with open(os.path.join(os.getcwd(), "saved", "course_content.json"), encoding="utf8", mode="w") as f:
             f.write(json.dumps(course_json))
@@ -1969,7 +1987,7 @@ def main():
         if info:
             _print_course_info(udemy, udemy_object)
         else:
-            parse_new(udemy, udemy_object)
+            parse_new(udemy, udemy_object, course_detail)
     else:
         udemy_object = {}
         udemy_object["bearer_token"] = bearer_token
@@ -2062,7 +2080,7 @@ def main():
         if info:
             _print_course_info(udemy, udemy_object)
         else:
-            parse_new(udemy, udemy_object)
+            parse_new(udemy, udemy_object, course_detail)
 
 
 if __name__ == "__main__":
